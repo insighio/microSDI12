@@ -47,7 +47,7 @@ class SDI12:
         return (manufacturer, model)
 
     def get_measurement(self, address):
-        data_cmd_resp = None
+        values = None
         # Request
         nonconcur_meas_cmd_resp = self._send(address + 'M!')
         if nonconcur_meas_cmd_resp and len(nonconcur_meas_cmd_resp) == 5:
@@ -63,11 +63,18 @@ class SDI12:
                     break
                 utime.sleep_ms(10)
 
-            data_cmd_resp = self._send(address + 'D0!')
+            i = 0
+            values_read = 0
+            values = []
+            while values_read < number_of_measurements:
+                resp = self._send(address + 'D' + str(i) + '!')
+                values = values + self._measurement_to_array(resp)
+                values_read = len(values)
+                i += 1
 
-        return data_cmd_resp
+        return values
 
-    def measurement_to_array(self, measurement_response):
+    def _measurement_to_array(self, measurement_response):
         values = []
         try:
             # start from index 1 since response[0] is the address
@@ -84,17 +91,6 @@ class SDI12:
         except Exception as e:
             print("Error processing generic sdi response: [{}]".format(measurement_response))
         return values
-
-    def read_sensor(self, address):
-        manufacturer = None
-        model = None
-        sensor_response = None
-
-        if self.is_active(address):
-            manufacturer, model = self.get_sensor_info(address)
-            sensor_response = self.get_measurement(address)
-
-        return (manufacturer, model, sensor_response)
 
     def close(self):
         if self.uart:
