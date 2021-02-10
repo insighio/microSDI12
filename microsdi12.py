@@ -8,6 +8,7 @@ class SDI12:
         self.pin_txd = pin_txd
         self.pin_rxd = pin_rxd
         self.p_tx = Pin(pin_txd, mode=Pin.OUT)
+        self.p_dir = None
         if pin_direction:
             self.p_dir = Pin(pin_direction, mode=Pin.OUT)
         self.uart = UART(uart_bus_id)
@@ -15,7 +16,7 @@ class SDI12:
     def _send(self, cmd):
         self.uart.deinit()
         self.p_tx.value(0)
-        if pin_direction:
+        if self.p_dir:
             self.p_dir.value(1)                                                 # set output dir
         utime.sleep_us(12500)                                                   # send BREAK
         self.p_tx.value(1)
@@ -24,7 +25,7 @@ class SDI12:
         print("SDI12 > [" + cmd + "]")
         self.uart.write(cmd)                                                    # send command
         utime.sleep_us(8333 * len(cmd))                                         # wait to send command (byte time * command length)
-        if pin_direction:
+        if self.p_dir:
             self.p_dir.value(0)                                                 # output set to read
         line = self.uart.readline()                                             # read data from UART
         if line:
