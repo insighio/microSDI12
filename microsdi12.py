@@ -47,10 +47,10 @@ class SDI12:
             model = responseParts[1]
         return (manufacturer, model)
 
-    def get_measurement(self, address):
+    def get_measurement(self, address, measurement_name="M"):
         values = None
         # Request
-        nonconcur_meas_cmd_resp = self._send(address + 'M!')
+        nonconcur_meas_cmd_resp = self._send(address + measurement_name + '!')
         if nonconcur_meas_cmd_resp and len(nonconcur_meas_cmd_resp) == 5:
             seconds_to_wait_max = int(nonconcur_meas_cmd_resp[1:3])
             number_of_measurements = int(nonconcur_meas_cmd_resp[4])
