@@ -37,10 +37,17 @@ Sends a request for data measurement to the sensor and returns the data provided
 ```
   * args:
     * SDI-12 sensor address. Typical range: 0-9.
-    * measurement_name: Configures the name of the query. Default is "M" as the default query is "aM!". 
+    * measurement_name: Configures the name of the query. Default is "M" as the default query is "aM!".
   * returns:
     * Measurement data array: an array containing all the data collected from the sensor. For details on each data value, please advise sensor manufacturer manuals. If sensor is unreachable, returns `None`
 
+**set_timing_params** (char_wait_duration_us):
+
+Set the time needed for a character to be transmitted over UART. Used to calculate the sleep periods to ensure a character has been fully transmitted (ex. time to keep HIGH/LOW the direction and transmission pins for BREAK or MARK for SDI12). Default: 8333us
+
+**set_wait_after_uart_write** (wait_enabled):
+
+Enable/disable the sleep command after a UART write. For micropython implementations that uart.write calls uart_wait_tx_done, this sleep can be deactivated. If enabled, after UART write, the application sleeps for (char_wait_duration_us) * (number of command characters).
 
 # Example
 
