@@ -49,6 +49,28 @@ Set the time needed for a character to be transmitted over UART. Used to calcula
 
 Enable/disable the sleep command after a UART write. For micropython implementations that uart.write calls uart_wait_tx_done, this sleep can be deactivated. If enabled, after UART write, the application sleeps for (char_wait_duration_us) * (number of command characters).
 
+**_send** (cmd, timeout_ms=2500, termination_line=None):
+
+The function to send command to the sensor and wait for incoming data. Mainly used for test purposes.
+
+* arguments:
+  - `cmd`: the command to send (ex. '1I!')
+  - `timeout_ms` (optional): the time in milliseconds to wait for incoming response after a succesful write command to the sensor.
+  - `termination_line` (optional): If _termination_line_ is defined, the function will poll and aggregate incoming messages till the _termination_line_ matches with the input. If not defined, the function will terminate with the first successfully received message.
+* returns:
+  A multiline string with all the received messages. If _termination_line_ is not defined, the string is always one line. If no incoming messages received, returns `None`
+
+### Example call
+
+```python
+>>> out = sdi12._send("1M!", 2000, '1')
+SDI12 > [1M!]
+ < [10015]
+ < [1]
+>>> out
+'10015\n1'
+```
+
 # Example
 
 ```python

@@ -21,7 +21,7 @@ class SDI12:
     def set_wait_after_uart_write(self, wait_enabled):
         self.enable_wait_after_uart_write = wait_enabled
 
-    def _send(self, cmd):
+    def _send(self, cmd, timeout_ms=2500, termination_line=None):
         if self.uart:
             self.uart.deinit()
 
@@ -48,23 +48,29 @@ class SDI12:
             self.p_dir.value(0)                                                 # output set to read
 
         start_timestamp = utime.ticks_ms()
-        timeout_timestamp = start_timestamp + 2500
-        line = None
+        timeout_timestamp = start_timestamp + timeout_ms
+        line = ""
         while True:
             remaining_bytes = self.uart.any()
             if(utime.ticks_ms() >= timeout_timestamp):
                 break
 
-            line = self.uart.readline()
-            if line:
-                try:
-                    line = line.decode('utf-8').strip()
-                    print(" < [" + line + "]")
-                    break
-                except:
-                    print("! " + str(line))
+            if remaining_bytes > 0:
+                line_cur = self.uart.readline()
+                if line_cur:
+                    try:
+                        line_cur = line_cur.decode('utf-8').strip()
+                        line += '\n' + line_cur
+                        print(" < [" + line_cur + "]")
+                        if termination_line is not None:
+                            if line_cur == termination_line:
+                                break
+                        else:
+                            break
+                    except:
+                        print("! " + str(line))
             utime.sleep_ms(100)
-        return line
+        return line.strip() if line != "" else None
 
     def is_active(self, address):
         ack_act_cmd_resp = self._send(address + '!')
@@ -77,7 +83,7 @@ class SDI12:
         if id_cmd_resp:
             responseParts = id_cmd_resp.split(' ')
             manufacturer = responseParts[0][3:]
-            model = responseParts[1]
+            model = ' '.join(responseParts[1:]).strip()
         return (manufacturer, model)
 
     def get_measurement(self, address, measurement_name="M"):
