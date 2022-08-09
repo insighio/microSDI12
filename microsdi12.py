@@ -14,6 +14,18 @@ class SDI12:
         self.is_esp32 = (sys.platform.lower() == "esp32")
         self.char_wait_duration_us = 8333
         self.enable_wait_after_uart_write = True
+        self.dual_direction_pins = False
+        self.pin_drv = None
+        self.pin_rcv = None
+        self.delay_ms_after_send = None
+
+    def set_dual_direction_pins(self, pin_drv, pin_rcv):
+        self.pin_drv = pin_drv
+        self.pin_rcv = pin_rcv
+        self.dual_direction_pins = True
+
+    def wait_after_each_send(self, delay_ms):
+        self.delay_ms_after_send = delay_ms
 
     def set_timing_params(self, char_wait_duration_us):
         self.char_wait_duration_us = char_wait_duration_us
@@ -29,15 +41,22 @@ class SDI12:
         self.p_dir = None
         if self.pin_dir:
             self.p_dir = Pin(self.pin_dir, mode=Pin.OUT)
+        elif self.dual_direction_pins:
+            self.p_drv = Pin(self.pin_drv, mode=Pin.OUT)
+            self.p_rcv = Pin(self.pin_rcv, mode=Pin.OUT)
 
         self.p_tx.value(0)
         if self.p_dir:
             self.p_dir.value(1)                                                 # set output dir
+        elif self.dual_direction_pins:
+            self.p_drv.value(1)
+            self.p_rcv.value(1)
         utime.sleep_us(int(self.char_wait_duration_us * 1.5))                   # send BREAK
         self.p_tx.value(1)
         utime.sleep_us(self.char_wait_duration_us)                              # send MARK
         if self.is_esp32:
             self.uart = UART(self.uart_bus_id, baudrate=1200, bits=7, parity=2, stop=1, tx=self.pin_txd, rx=self.pin_rxd, timeout_char=75)
+            self.uart.init(baudrate=1200, bits=7, parity=2, stop=1, tx=self.pin_txd, rx=self.pin_rxd, timeout_char=75)
         else:
             self.uart = UART(self.uart_bus_id, baudrate=1200, bits=7, parity=UART.EVEN, stop=1, timeout_chars=75, pins=(self.pin_txd, self.pin_rxd))
         print("SDI12 > [" + cmd + "]")
@@ -46,6 +65,9 @@ class SDI12:
             utime.sleep_us(8333 * len(cmd))                                     # wait to send command (byte time * command length)
         if self.pin_dir:
             self.p_dir.value(0)                                                 # output set to read
+        elif self.dual_direction_pins:
+            self.p_drv.value(0)
+            self.p_rcv.value(0)
 
         start_timestamp = utime.ticks_ms()
         timeout_timestamp = start_timestamp + timeout_ms
@@ -70,6 +92,10 @@ class SDI12:
                     except:
                         print("! " + str(line))
             utime.sleep_ms(100)
+
+        if self.delay_ms_after_send:
+            utime.sleep_ms(self.delay_ms_after_send)
+
         return line.strip() if line != "" else None
 
     def is_active(self, address):
@@ -138,5 +164,12 @@ class SDI12:
         return values
 
     def close(self):
+        if self.dual_direction_pins:
+            try:
+                self.p_drv.value(0)
+                self.p_rcv.value(1)
+            except:
+                pass
+
         if self.uart:
             self.uart.deinit()
