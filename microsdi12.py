@@ -112,13 +112,13 @@ class SDI12:
             model = ' '.join(responseParts[1:]).strip()
         return (manufacturer, model)
 
-    def get_measurement(self, address, measurement_name="M"):
+    def get_measurement(self, address, measurement_name="M", number_of_measurements_digit_count=1):
         values = None
         # Request
-        nonconcur_meas_cmd_resp = self._send(address + measurement_name + '!')
-        if nonconcur_meas_cmd_resp and len(nonconcur_meas_cmd_resp) == 5:
-            seconds_to_wait_max = int(nonconcur_meas_cmd_resp[1:4])
-            number_of_measurements = int(nonconcur_meas_cmd_resp[4])
+        meas_cmd_resp = self._send(address + measurement_name + '!')
+        if meas_cmd_resp and len(meas_cmd_resp) == (4+number_of_measurements_digit_count):
+            seconds_to_wait_max = int(meas_cmd_resp[1:4])
+            number_of_measurements = int(meas_cmd_resp[4:4+number_of_measurements_digit_count])
 
             timeout = utime.ticks_ms() + seconds_to_wait_max * 1000
             pending_bytes = self.uart.any()
