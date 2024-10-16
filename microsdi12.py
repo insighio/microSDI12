@@ -106,11 +106,21 @@ class SDI12:
         manufacturer = None
         model = None
         id_cmd_resp = self._send(address + 'I!')
-        if id_cmd_resp:
-            responseParts = id_cmd_resp.split(' ')
-            manufacturer = responseParts[0][3:]
-            model = ' '.join(responseParts[1:]).strip()
+        if id_cmd_resp and len(id_cmd_resp) >= 17:
+            manufacturer = id_cmd_resp[3:11].strip()
+            model = id_cmd_resp[11:17].strip()
         return (manufacturer, model)
+
+    def get_sensor_info_ex(self, address):
+        manufacturer = None
+        model = None
+        id_cmd_resp = self._send(address + 'I!')
+        if id_cmd_resp and len(id_cmd_resp) > 20:
+            manufacturer = id_cmd_resp[3:11].strip()
+            model = id_cmd_resp[11:17].strip()
+            version = id_cmd_resp[17:20].strip()
+            extra_info = id_cmd_resp[20:].strip()
+        return (manufacturer, model, version, extra_info)
 
     def get_measurement(self, address, measurement_name="M", number_of_measurements_digit_count=1):
         values = None
