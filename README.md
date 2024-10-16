@@ -22,6 +22,12 @@ A mini SDI-12 implementation for getting sensor info over UART using directional
   * returns:
     * Tuple (manufacturer, model): The manufacturer and model name as reported by the sensor. If sensor is unreachable, returns `(None, None)`
 
+**get_sensor_info_ex** (address)
+  * args:
+    * SDI-12 sensor address. Typical range: 0-9.
+  * returns:
+    * Tuple (manufacturer, model, version, extra_info): The manufacturer, model, version, extra_info name as reported by the sensor. If sensor is unreachable, returns `(None, None, None, None)`
+
 **get_measurement** (address, measurement_name="M", number_of_measurements_digit_count=1)
 
 Sends a request for data measurement to the sensor and returns the data provided by the sensor split into an array. Supports parsing all possible values provided through multiple sequential requests on the sensor. Example:
