@@ -114,6 +114,8 @@ class SDI12:
     def get_sensor_info_ex(self, address):
         manufacturer = None
         model = None
+        version = None
+        extra_info = None
         id_cmd_resp = self._send(address + 'I!')
         if id_cmd_resp and len(id_cmd_resp) > 20:
             manufacturer = id_cmd_resp[3:11].strip()
