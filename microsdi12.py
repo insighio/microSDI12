@@ -124,7 +124,7 @@ class SDI12:
             extra_info = id_cmd_resp[20:].strip()
         return (manufacturer, model, version, extra_info)
 
-    def get_measurement(self, address, measurement_name="M", number_of_measurements_digit_count=1):
+    def get_measurement(self, address, measurement_name="M", number_of_measurements_digit_count=1, force_wait_period=False):
         values = None
         # Request
         meas_cmd_resp = self._send(address + measurement_name + '!')
@@ -134,7 +134,7 @@ class SDI12:
 
             timeout = utime.ticks_ms() + seconds_to_wait_max * 1000
             pending_bytes = self.uart.any()
-            while utime.ticks_ms() < timeout and pending_bytes == 0:
+            while utime.ticks_ms() < timeout and (force_wait_period or pending_bytes == 0):
                 pending_bytes = self.uart.any()
                 if pending_bytes > 0:
                     try:
@@ -142,7 +142,8 @@ class SDI12:
                         print(" <~ [" + line.decode('utf-8').strip() + "]")
                     except:
                         print(" <~! [" + str(line) + "]")
-                    break
+                    if not force_wait_period:
+                        break
                 utime.sleep_ms(10)
 
             i = 0
@@ -173,6 +174,7 @@ class SDI12:
                 i += 1
         except Exception as e:
             print("Error processing generic sdi response: [{}]".format(measurement_response))
+            print(e)
         return values
 
     def close(self):
