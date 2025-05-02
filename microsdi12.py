@@ -136,11 +136,15 @@ class SDI12:
 
     def get_measurement(self, address, measurement_name="M", number_of_measurements_digit_count=1, force_wait_period=False):
         values = None
+
+        # deprecation of number_of_measurements_digit_count parameter
+        # it is now calculated from the response
+
         # Request
         meas_cmd_resp = self._send(address + measurement_name + "!")
-        if meas_cmd_resp and len(meas_cmd_resp) == (4 + number_of_measurements_digit_count):
+        if meas_cmd_resp and len(meas_cmd_resp) > 4:
             seconds_to_wait_max = int(meas_cmd_resp[1:4])
-            number_of_measurements = int(meas_cmd_resp[4 : 4 + number_of_measurements_digit_count])
+            number_of_measurements = int(meas_cmd_resp[4:])
 
             timeout = utime.ticks_ms() + seconds_to_wait_max * 1000
             pending_bytes = self.uart.any()
