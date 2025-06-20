@@ -2,6 +2,21 @@
 
 A mini SDI-12 implementation for getting sensor info over UART using directional RS-485.
 
+# Installation
+
+## Using `mip`
+
+For network connected devices, call:
+
+```py
+import mip
+mip.install("github:insighio/microSDI12/microsdi12.py")
+```
+
+## File Transfer
+
+Download and transfer files in the board through [ampy](https://pypi.org/project/adafruit-ampy/).
+
 # API
 
 ## class SDI12
