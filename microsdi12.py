@@ -63,8 +63,8 @@ class SDI12:
         self.p_tx.value(1)
         utime.sleep_us(self.char_wait_duration_us)  # send MARK
         if self.is_esp32:
-            self.uart = UART(self.uart_bus_id, baudrate=1200, bits=7, parity=2, stop=1, tx=self.pin_txd, rx=self.pin_rxd, timeout_char=75)
-            self.uart.init(baudrate=1200, bits=7, parity=2, stop=1, tx=self.pin_txd, rx=self.pin_rxd, timeout_char=75)
+            self.uart = UART(self.uart_bus_id, baudrate=1200, bits=7, parity=0, stop=1, tx=self.pin_txd, rx=self.pin_rxd, timeout_char=75)
+            self.uart.init(baudrate=1200, bits=7, parity=0, stop=1, tx=self.pin_txd, rx=self.pin_rxd, timeout_char=75)
         else:
             self.uart = UART(
                 self.uart_bus_id, baudrate=1200, bits=7, parity=UART.EVEN, stop=1, timeout_chars=75, pins=(self.pin_txd, self.pin_rxd)
