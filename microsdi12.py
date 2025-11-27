@@ -79,12 +79,11 @@ class SDI12:
             self.p_drv.value(self.pin_drv_rx_val)  # set driver pin to receive
             self.p_rcv.value(self.pin_rcv_rx_val)
 
-        start_timestamp = utime.ticks_ms()
-        timeout_timestamp = start_timestamp + timeout_ms
+        timeout_timestamp = utime.ticks_add(utime.ticks_ms(), timeout_ms)
         line = ""
         while True:
             remaining_bytes = self.uart.any()
-            if utime.ticks_ms() >= timeout_timestamp:
+            if utime.ticks_diff(utime.ticks_ms(), timeout_timestamp) >= 0:
                 break
 
             if remaining_bytes > 0:
