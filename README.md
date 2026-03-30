@@ -37,6 +37,27 @@ Download and transfer files in the board through [ampy](https://pypi.org/project
 - pin_drv_rx_val: pin value (0 or 1) when receiving
 - pin_rcv_rx_val: pin value (0 or 1) when receiving
 
+**set_data_levels_inverted** (inverted)
+
+- args:
+  - `inverted`: boolean to set SDI12 data signal inversion status
+
+Default: False
+
+**set_debug_print** (enable_print)
+
+- args:
+  - `enable_print`: boolean to enable/disable debug prints
+
+Default: True
+
+**set_remove_echo_from_response** (remove_echo)
+
+- args:
+  - `remove_echo`: boolean to enable/disable the removal of cmd echo from the returned string. This is useful in case the RX/TX of the UART listen all the commands at all time.
+
+Default: False
+
 **is_active** (address)
 
 - args:
