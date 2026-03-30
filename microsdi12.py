@@ -22,6 +22,9 @@ class SDI12:
         self.pin_drv_rx_val = 0
         self.pin_rcv_rx_val = 0
         self.delay_ms_after_send = None
+        self.data_levels_inverted = False
+        self.enable_debug_print = True
+        self.remove_echo_from_response = False
 
     def set_dual_direction_pins(self, pin_drv, pin_rcv, pin_drv_tx_val=1, pin_rcv_tx_val=1, pin_drv_rx_val=0, pin_rcv_rx_val=0):
         self.pin_drv = pin_drv
@@ -32,6 +35,15 @@ class SDI12:
         self.pin_rcv_rx_val = pin_rcv_rx_val
         self.dual_direction_pins = True
 
+    def set_data_levels_inverted(self, inverted):
+        self.data_levels_inverted = inverted
+
+    def set_debug_print(self, enable_print):
+        self.enable_debug_print = enable_print
+
+    def set_remove_echo_from_response(self, remove_echo):
+        self.remove_echo_from_response = remove_echo
+
     def wait_after_each_send(self, delay_ms):
         self.delay_ms_after_send = delay_ms
 
@@ -40,6 +52,10 @@ class SDI12:
 
     def set_wait_after_uart_write(self, wait_enabled):
         self.enable_wait_after_uart_write = wait_enabled
+
+    def log(self, msg):
+        if self.enable_debug_print:
+            print("{}\n".format(msg))
 
     def _send(self, cmd, timeout_ms=2500, termination_line=None):
         if self.uart:
@@ -53,27 +69,41 @@ class SDI12:
             self.p_drv = Pin(self.pin_drv, mode=Pin.OUT)
             self.p_rcv = Pin(self.pin_rcv, mode=Pin.OUT)
 
-        self.p_tx.value(0)
+        self.p_tx.value(1 if self.data_levels_inverted else 0)  # BREAK level
         if self.p_dir:
             self.p_dir.value(1)  # set output dir
         elif self.dual_direction_pins:
             self.p_drv.value(self.pin_drv_tx_val)
             self.p_rcv.value(self.pin_rcv_tx_val)
         utime.sleep_us(int(self.char_wait_duration_us * 1.5))  # send BREAK
-        self.p_tx.value(1)
+
+        self.p_tx.value(0 if self.data_levels_inverted else 1)  # MARK level
         utime.sleep_us(self.char_wait_duration_us)  # send MARK
         if self.is_esp32:
-            self.uart = UART(self.uart_bus_id, baudrate=1200, bits=7, parity=0, stop=1, tx=self.pin_txd, rx=self.pin_rxd, timeout_char=75)
-            self.uart.init(baudrate=1200, bits=7, parity=0, stop=1, tx=self.pin_txd, rx=self.pin_rxd, timeout_char=75)
+            inverted_flag = UART.INV_TX | UART.INV_RX if self.data_levels_inverted else 0
+            # inverted_flag = 0
+            self.uart = UART(
+                self.uart_bus_id,
+                baudrate=1200,
+                bits=7,
+                parity=0,
+                stop=1,
+                tx=self.pin_txd,
+                rx=self.pin_rxd,
+                timeout_char=75,
+                invert=inverted_flag,
+            )
+            self.uart.init(baudrate=1200, bits=7, parity=0, stop=1, tx=self.pin_txd, rx=self.pin_rxd, timeout_char=75, invert=inverted_flag)
         else:
             self.uart = UART(
                 self.uart_bus_id, baudrate=1200, bits=7, parity=UART.EVEN, stop=1, timeout_chars=75, pins=(self.pin_txd, self.pin_rxd)
             )
-        print("SDI12 > [" + cmd + "]")
+
+        self.log("SDI12 > [" + cmd + "]")
         self.uart.write(cmd)  # send command
         if self.enable_wait_after_uart_write:
             utime.sleep_us(8333 * len(cmd))  # wait to send command (byte time * command length)
-        if self.pin_dir:
+        if self.p_dir:
             self.p_dir.value(0)  # output set to read
         elif self.dual_direction_pins:
             self.p_drv.value(self.pin_drv_rx_val)  # set driver pin to receive
@@ -91,21 +121,36 @@ class SDI12:
                 if line_cur:
                     try:
                         line_cur = line_cur.decode("utf-8").strip()
+                        if self.remove_echo_from_response and line_cur == cmd.strip():
+                            self.log(" < (echo) [" + line_cur + "]")
+                            continue
                         line += "\n" + line_cur
-                        print(" < [" + line_cur + "]")
+                        self.log(" < [" + line_cur + "]")
                         if termination_line is not None:
                             if line_cur == termination_line:
                                 break
                         else:
                             break
                     except:
-                        print("! " + str(line))
+                        self.log("! " + str(line))
             utime.sleep_ms(100)
+
+        self.p_tx.value(0 if self.data_levels_inverted else 1)  # BREAK level
+        if self.p_dir:
+            self.p_dir.value(1)  # set output dir
+        elif self.dual_direction_pins:
+            self.p_drv.value(self.pin_drv_tx_val)
+            self.p_rcv.value(self.pin_rcv_tx_val)
 
         if self.delay_ms_after_send:
             utime.sleep_ms(self.delay_ms_after_send)
 
         return line.strip() if line != "" else None
+        # line = line.strip()
+        # if self.remove_echo_from_response:
+        #     return line[len(cmd.strip()) :]
+        # else:
+        #     line.strip() if line != "" else None
 
     def is_active(self, address):
         ack_act_cmd_resp = self._send(address + "!")
@@ -152,9 +197,9 @@ class SDI12:
                 if pending_bytes > 0:
                     try:
                         line = self.uart.readline()
-                        print(" <~ [" + line.decode("utf-8").strip() + "]")
+                        self.log(" <~ [" + line.decode("utf-8").strip() + "]")
                     except:
-                        print(" <~! [" + str(line) + "]")
+                        self.log(" <~! [" + str(line) + "]")
                     if not force_wait_period:
                         break
                 utime.sleep_ms(10)
@@ -186,8 +231,8 @@ class SDI12:
                     values[-1] += c
                 i += 1
         except Exception as e:
-            print("Error processing generic sdi response: [{}]".format(measurement_response))
-            print(e)
+            self.log("Error processing generic sdi response: [{}]".format(measurement_response))
+            self.log(str(e))
         return values
 
     def close(self):
