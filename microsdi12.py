@@ -55,7 +55,7 @@ class SDI12:
 
     def log(self, msg):
         if self.enable_debug_print:
-            print("{}\n".format(msg))
+            print(msg)
 
     def _send(self, cmd, timeout_ms=2500, termination_line=None):
         if self.uart:
@@ -120,8 +120,8 @@ class SDI12:
                 line_cur = self.uart.readline()
                 if line_cur:
                     try:
-                        line_cur = line_cur.decode("utf-8").strip()
-                        if self.remove_echo_from_response and line_cur == cmd.strip():
+                        line_cur = line_cur.decode("utf-8").strip("\r\n\x00")
+                        if self.remove_echo_from_response and line_cur == cmd.strip("\r\n\x00"):
                             self.log(" < (echo) [" + line_cur + "]")
                             continue
                         line += "\n" + line_cur
@@ -145,12 +145,8 @@ class SDI12:
         if self.delay_ms_after_send:
             utime.sleep_ms(self.delay_ms_after_send)
 
-        return line.strip() if line != "" else None
-        # line = line.strip()
-        # if self.remove_echo_from_response:
-        #     return line[len(cmd.strip()) :]
-        # else:
-        #     line.strip() if line != "" else None
+        res = line.strip("\r\n\x00") if line != "" else None
+        return res
 
     def is_active(self, address):
         ack_act_cmd_resp = self._send(address + "!")
@@ -161,8 +157,8 @@ class SDI12:
         model = None
         id_cmd_resp = self._send(address + "I!")
         if id_cmd_resp and len(id_cmd_resp) >= 17:
-            manufacturer = id_cmd_resp[3:11].strip()
-            model = id_cmd_resp[11:17].strip()
+            manufacturer = id_cmd_resp[3:11].strip("\r\n\x00")
+            model = id_cmd_resp[11:17].strip("\r\n\x00")
         return (manufacturer, model)
 
     def get_sensor_info_ex(self, address):
@@ -172,10 +168,10 @@ class SDI12:
         extra_info = None
         id_cmd_resp = self._send(address + "I!")
         if id_cmd_resp and len(id_cmd_resp) > 20:
-            manufacturer = id_cmd_resp[3:11].strip()
-            model = id_cmd_resp[11:17].strip()
-            version = id_cmd_resp[17:20].strip()
-            extra_info = id_cmd_resp[20:].strip()
+            manufacturer = id_cmd_resp[3:11].strip("\r\n\x00")
+            model = id_cmd_resp[11:17].strip("\r\n\x00")
+            version = id_cmd_resp[17:20].strip("\r\n\x00")
+            extra_info = id_cmd_resp[20:].strip("\r\n\x00")
         return (manufacturer, model, version, extra_info)
 
     def get_measurement(self, address, measurement_name="M", number_of_measurements_digit_count=1, force_wait_period=False):
@@ -197,7 +193,7 @@ class SDI12:
                 if pending_bytes > 0:
                     try:
                         line = self.uart.readline()
-                        self.log(" <~ [" + line.decode("utf-8").strip() + "]")
+                        self.log(" <~ [" + line.decode("utf-8").strip("\r\n\x00") + "]")
                     except:
                         self.log(" <~! [" + str(line) + "]")
                     if not force_wait_period:
