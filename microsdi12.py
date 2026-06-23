@@ -102,7 +102,7 @@ class SDI12:
         self.log("SDI12 > [" + cmd + "]")
         self.uart.write(cmd)  # send command
         if self.enable_wait_after_uart_write:
-            utime.sleep_us(8333 * len(cmd))  # wait to send command (byte time * command length)
+            utime.sleep_us(self.char_wait_duration_us * len(cmd))  # wait to send command (byte time * command length)
         if self.p_dir:
             self.p_dir.value(0)  # output set to read
         elif self.dual_direction_pins:
@@ -205,10 +205,26 @@ class SDI12:
             values = []
             max_i = 9  # safety measure in case the sensor is unresponsive
             while values_read < number_of_measurements and i < max_i:
-                resp = self._send(address + "D" + str(i) + "!")
+                retry_count = 0
+                max_retries = 3
+                while retry_count < max_retries:
+                    resp = self._send(address + "D" + str(i) + "!")
+                    if resp is not None:
+                        break
+                    retry_count += 1
+                    self.log(
+                        "Warning: No response received for D{} command. Retrying... (Attempt {}/{})".format(i, retry_count, max_retries)
+                    )
+                if resp is None:
+                    self.log("Error: No response received for D{} command after {} attempts.".format(i, max_retries))
+                    break
                 values = values + self._measurement_to_array(resp)
                 values_read = len(values)
                 i += 1
+
+            if values_read < number_of_measurements:
+                self.log("Warning: Expected {} measurements, but only received {}.".format(number_of_measurements, values_read))
+                return None
 
         return values
 
