@@ -25,6 +25,9 @@ class SDI12:
         self.data_levels_inverted = False
         self.enable_debug_print = True
         self.remove_echo_from_response = False
+        self.sleep_period_us_before_write = 1
+        self.sleep_period_us_after_write = 1
+        self.write_wait_extra_characters = 0
 
     def set_dual_direction_pins(self, pin_drv, pin_rcv, pin_drv_tx_val=1, pin_rcv_tx_val=1, pin_drv_rx_val=0, pin_rcv_rx_val=0):
         self.pin_drv = pin_drv
@@ -98,17 +101,22 @@ class SDI12:
             self.uart = UART(
                 self.uart_bus_id, baudrate=1200, bits=7, parity=UART.EVEN, stop=1, timeout_chars=75, pins=(self.pin_txd, self.pin_rxd)
             )
-
+            
         self.log("SDI12 > [" + cmd + "]")
+        utime.sleep_us(self.sleep_period_us_before_write)
         self.uart.write(cmd)  # send command
+        
         if self.enable_wait_after_uart_write:
-            utime.sleep_us(self.char_wait_duration_us * len(cmd))  # wait to send command (byte time * command length)
+            utime.sleep_us(self.char_wait_duration_us * (len(cmd) + self.write_wait_extra_characters))  # wait to send command (byte time * command length)
+        
         if self.p_dir:
             self.p_dir.value(0)  # output set to read
         elif self.dual_direction_pins:
             self.p_drv.value(self.pin_drv_rx_val)  # set driver pin to receive
             self.p_rcv.value(self.pin_rcv_rx_val)
-
+            
+        utime.sleep_us(self.sleep_period_us_after_write)
+        
         timeout_timestamp = utime.ticks_add(utime.ticks_ms(), timeout_ms)
         line = ""
         while True:
@@ -130,10 +138,11 @@ class SDI12:
                             if line_cur == termination_line:
                                 break
                         else:
+                            #print("waiting")
                             break
                     except:
                         self.log("! " + str(line))
-            utime.sleep_ms(100)
+            utime.sleep_ms(1)
 
         self.p_tx.value(0 if self.data_levels_inverted else 1)  # BREAK level
         if self.p_dir:
@@ -183,8 +192,18 @@ class SDI12:
         # Request
         meas_cmd_resp = self._send(address + measurement_name + "!")
         if meas_cmd_resp and len(meas_cmd_resp) > 4:
-            seconds_to_wait_max = int(meas_cmd_resp[1:4])
-            number_of_measurements = int(meas_cmd_resp[4:])
+            seconds_to_wait_max = int(meas_cmd_resp[1:4].strip("\r\n\x00"))
+            number_of_measurements = -1
+            try:
+                number_of_measurements = int(meas_cmd_resp[4:])
+            except Exception as e:
+                print("error converting to int value: {}, stripped: {}".format(meas_cmd_resp[4:], meas_cmd_resp[4:].strip("\r\n\x00")))
+                
+            if(number_of_measurements < 0):
+                try:
+                    number_of_measurements = int(re.sub("\n.*", "", meas_cmd_resp[4:]))
+                except Exception as e:
+                    print("error convertint to int value: {}, stripped: {}".format(meas_cmd_resp[4:], meas_cmd_resp[4:].strip("\r\n\x00")))
 
             timeout = utime.ticks_ms() + seconds_to_wait_max * 1000
             pending_bytes = self.uart.any()
