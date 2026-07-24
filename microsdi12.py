@@ -1,7 +1,7 @@
 from machine import Pin
 from machine import UART
 import utime
-import sys
+import re
 
 
 class SDI12:
@@ -11,7 +11,6 @@ class SDI12:
         self.pin_dir = pin_direction
         self.uart = None
         self.uart_bus_id = uart_bus_id
-        self.is_esp32 = sys.platform.lower() == "esp32"
         self.char_wait_duration_us = 8333
         self.enable_wait_after_uart_write = True
         self.dual_direction_pins = False
@@ -25,6 +24,7 @@ class SDI12:
         self.data_levels_inverted = False
         self.enable_debug_print = True
         self.remove_echo_from_response = False
+        self.inverted_flag = 0
         self.sleep_period_us_before_write = 0
         self.sleep_period_us_after_write = 0
         self.write_wait_extra_characters = 0
@@ -35,26 +35,21 @@ class SDI12:
         else:
             self.p_dir = None
         self._initialize_uart()
-            
+
     def _initialize_uart(self):
-        if self.is_esp32:
-            inverted_flag = UART.INV_TX | UART.INV_RX if self.data_levels_inverted else 0
-            # inverted_flag = 0
-            self.uart = UART(
-                self.uart_bus_id,
-                baudrate=1200,
-                bits=7,
-                parity=0,
-                stop=1,
-                tx=self.pin_txd,
-                rx=self.pin_rxd,
-                timeout_char=75,
-                invert=inverted_flag,
-            )
-        else:
-            self.uart = UART(
-                self.uart_bus_id, baudrate=1200, bits=7, parity=UART.EVEN, stop=1, timeout_chars=75, pins=(self.pin_txd, self.pin_rxd)
-            )
+        self.inverted_flag = UART.INV_TX | UART.INV_RX if self.data_levels_inverted else 0
+        # inverted_flag = 0
+        self.uart = UART(
+            self.uart_bus_id,
+            baudrate=1200,
+            bits=7,
+            parity=0,
+            stop=1,
+            tx=self.pin_txd,
+            rx=self.pin_rxd,
+            timeout_char=75,
+            invert=self.inverted_flag,
+        )
 
     def set_dual_direction_pins(self, pin_drv, pin_rcv, pin_drv_tx_val=1, pin_rcv_tx_val=1, pin_drv_rx_val=0, pin_rcv_rx_val=0):
         self.pin_drv = pin_drv
@@ -104,27 +99,29 @@ class SDI12:
         self.p_tx.value(0 if self.data_levels_inverted else 1)  # MARK level
         utime.sleep_us(int(self.char_wait_duration_us * self.mark_level_multiplier))  # MARK
 
-        if self.is_esp32:
-            inverted_flag = UART.INV_TX | UART.INV_RX if self.data_levels_inverted else 0
-            self.uart.init(baudrate=1200, bits=7, parity=0, stop=1, tx=self.pin_txd, rx=self.pin_rxd, timeout_char=75, invert=inverted_flag)
-            
+        self.uart.init(
+            baudrate=1200, bits=7, parity=0, stop=1, tx=self.pin_txd, rx=self.pin_rxd, timeout_char=75, invert=self.inverted_flag
+        )
+
         self.log("SDI12 > [" + cmd + "]")
         if self.sleep_period_us_before_write > 0:
             utime.sleep_us(self.sleep_period_us_before_write)
         self.uart.write(cmd)  # send command
-        
+
         if self.enable_wait_after_uart_write:
-            utime.sleep_us(self.char_wait_duration_us * (len(cmd) + self.write_wait_extra_characters))  # wait to send command (byte time * command length)
-        
+            utime.sleep_us(
+                self.char_wait_duration_us * (len(cmd) + self.write_wait_extra_characters)
+            )  # wait to send command (byte time * command length)
+
         if self.p_dir:
             self.p_dir.value(0)  # output set to read
         elif self.dual_direction_pins:
             self.p_drv.value(self.pin_drv_rx_val)  # set driver pin to receive
             self.p_rcv.value(self.pin_rcv_rx_val)
-            
+
         if self.sleep_period_us_after_write > 0:
             utime.sleep_us(self.sleep_period_us_after_write)
-        
+
         timeout_timestamp = utime.ticks_add(utime.ticks_ms(), timeout_ms)
         line = ""
         while True:
@@ -146,7 +143,7 @@ class SDI12:
                             if line_cur == termination_line:
                                 break
                         else:
-                            #print("waiting")
+                            # print("waiting")
                             break
                     except:
                         self.log("! " + str(line))
@@ -206,8 +203,8 @@ class SDI12:
                 number_of_measurements = int(meas_cmd_resp[4:])
             except Exception as e:
                 print("error converting to int value: {}, stripped: {}".format(meas_cmd_resp[4:], meas_cmd_resp[4:].strip("\r\n\x00")))
-                
-            if(number_of_measurements < 0):
+
+            if number_of_measurements < 0:
                 try:
                     number_of_measurements = int(re.sub("\n.*", "", meas_cmd_resp[4:]))
                 except Exception as e:
@@ -243,7 +240,7 @@ class SDI12:
                         "Warning: No response received for D{} command. Retrying... (Attempt {}/{})".format(i, retry_count, max_retries)
                     )
                     utime.sleep_ms(500)
-                    
+
                 if resp is None:
                     self.log("Error: No response received for D{} command after {} attempts.".format(i, max_retries))
                     break
@@ -284,5 +281,5 @@ class SDI12:
             except:
                 pass
 
-        if self.uart:
-            self.uart.deinit()
+        # if self.uart:
+        #     self.uart.deinit()
