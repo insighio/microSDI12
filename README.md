@@ -106,6 +106,11 @@ Sends a request for data measurement to the sensor and returns the data provided
 
 - delay_ms: milliseconds to wait after command execution
 
+**set_watchdog_reset** (watchdog_reset, period_ms)
+
+- watchdog_reset: function to be called to reset watchdog
+- period: for long running operations, define every how many milliseconds the _watchdog_reset_ will be called.
+
 **set_timing_params** (char_wait_duration_us):
 
 Set the time needed for a character to be transmitted over UART. Used to calculate the sleep periods to ensure a character has been fully transmitted (ex. time to keep HIGH/LOW the direction and transmission pins for BREAK or MARK for SDI12). Default: 8333us
