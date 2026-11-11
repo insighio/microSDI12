@@ -30,6 +30,9 @@ class SDI12:
         self.write_wait_extra_characters = 0
         self.break_level_multiplier = 2
         self.mark_level_multiplier = 1.5
+        self._watchdog_reset = None
+        self._next_watchdog_reset = None
+        self._watchdog_reset_period = 5000
         if self.pin_dir:
             self.p_dir = Pin(self.pin_dir, mode=Pin.OUT)
         else:
@@ -74,6 +77,20 @@ class SDI12:
 
     def wait_after_each_send(self, delay_ms):
         self.delay_ms_after_send = delay_ms
+
+    def set_watchdog_reset(self, watchdog_reset, period=5000):
+        self._watchdog_reset = watchdog_reset
+        self._next_watchdog_reset = utime.ticks_ms()
+        self._watchdog_reset_period = period
+
+    def _feed_watchdog_if_due(self):
+        if self._watchdog_reset is None:
+            return
+
+        now = utime.ticks_ms()
+        if self._next_watchdog_reset is None or utime.ticks_diff(now, self._next_watchdog_reset) >= 0:
+            self._watchdog_reset()
+            self._next_watchdog_reset = utime.ticks_add(now, self._watchdog_reset_period)
 
     def set_timing_params(self, char_wait_duration_us):
         self.char_wait_duration_us = char_wait_duration_us
@@ -125,6 +142,7 @@ class SDI12:
         timeout_timestamp = utime.ticks_add(utime.ticks_ms(), timeout_ms)
         line = ""
         while True:
+            self._feed_watchdog_if_due()
             remaining_bytes = self.uart.any()
             if utime.ticks_diff(utime.ticks_ms(), timeout_timestamp) >= 0:
                 break
@@ -213,6 +231,7 @@ class SDI12:
             timeout = utime.ticks_ms() + seconds_to_wait_max * 1000
             pending_bytes = self.uart.any()
             while utime.ticks_ms() < timeout and (force_wait_period or pending_bytes == 0):
+                self._feed_watchdog_if_due()
                 pending_bytes = self.uart.any()
                 if pending_bytes > 0:
                     try:
@@ -232,6 +251,7 @@ class SDI12:
                 retry_count = 0
                 max_retries = 5
                 while retry_count < max_retries:
+                    self._feed_watchdog_if_due()
                     resp = self._send(address + "D" + str(i) + "!")
                     if resp is not None and resp.strip("\r\n\x00"):
                         break
