@@ -301,5 +301,5 @@ class SDI12:
             except:
                 pass
 
-        # if self.uart:
-        #     self.uart.deinit()
+        if self.uart:
+            self.uart.deinit()
